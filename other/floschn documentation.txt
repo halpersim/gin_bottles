@@ -1,0 +1,74 @@
+---------------floschn documentation--------------
+3 Layer:
+	1. Obj-Loader
+        > lond die Obj-file
+        
+        > requirements:
+            o all referenced textures have to be included in the page, with its full name
+                e.g.: <img id="etikett_vorn.png" src="https://brennerei-kainer.at/js/gin/models/etikett_vorn.png" style="display: none;"/>
+
+
+        > usage:
+        import * as loader from "../lib/obj_loader.js";
+        var model = new loader.Model(callback_func);
+        
+        loader.loadModel(model, url); 
+            .obj oda .zip supported; zip file has to contain a .obj file with the exact same name
+        
+        model.render_group(group_name: string, 
+            attribute_indices: {pos:number, texture:number, normal:number},
+            uniform_locations: {mw:number, vp:number, light:number, eye:number, diffuse:number, specular:number, specular_exponent:number}, 
+            with_materials?: bool);
+
+	2. Webgl
+        > rendering logic
+        > requirements:
+            o html <canvas> tag with id "gl"
+            o following files:
+                import * as mat4 from "../lib/glMatrix/src/mat4.js";
+                import * as vec3 from "../lib/glMatrix/src/vec3.js";
+                import * as loader from "../lib/obj_loader.js";
+        
+        > specifications:
+            o the model to load is specifed in the first few lines with this code:
+                loader.loadModel(model, base_url + "./models/ginfloschn_mit_java_iwaorweit_ep_008_ohne_unnetigs.zip");
+
+        > usage:
+
+        adds 2 functions to the window object:
+        window.render(rotation_angle_radians: number, field_of_view: number, point_of_interrest: number);
+            o renders the specified model onto the canvas with the id "gl" 
+        window.on_resize();
+            o should be called if the viewport is resized for correct output
+
+
+	3. Header-Code
+        > animation logic
+        > configuration:
+    
+    var base_url = "https://brennerei-kainer.at/js/gin/";
+        // url of the folder containing models and shaders
+
+    var div_height = 1500;
+        // height in px of the div where the animation takes place
+    var info_offset_rel = 0.3;
+        // look at picture
+
+    var transition_start_time = 0.7;
+        // when the bottle starts to move left
+
+    var end_freeze_max = 50;
+        // on small screens, if the bottle takes up the whole space, it remains if you scroll down for this many pixels 
+
+    var rad_start = 0;
+    var rad_end = 0.45;
+        // the rotation of the bottle
+
+    var fov_start = 1.5707;
+    var fov_end = 1.5707;
+        // the field_of_view of the animation
+
+    var poi_start = 8;
+    var poi_end = 8;
+        // the y coordinate of the point of interrest of the animation
+

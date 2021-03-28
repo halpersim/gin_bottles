@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <title>gin_2</title>
+   <!--- <script type="text/javascript" src="./obj_loader.js"></script> -->
+   <!---
+    Oneplus:
+    https://www.oneplus.com/at/7pro#/
+    -->
+   <meta charset="utf-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1">
+   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css">
+   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+   <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
+   <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"></script>
+
+   <script type="text/javascript" src="../lib/jszip_utils/dist/jszip-utils.min.js"></script>
+   <script src="../lib/jszip/dist/jszip.min.js"></script>
+
+
+   <style>        
+        #gl{
+            background: url('./zerscht.png');
+        }
+
+        #gl_cell{
+            top:0px;
+        }
+
+        #info{
+            text-align: left;
+            color: seashell;
+            height:min-content;
+        }
+
+        #bottle{
+            padding-left:0px;
+            height:1500px;
+            background-color:rgb(25, 25, 25);
+        }
+/*
+        #gl_cell{
+            background-color: blue;
+        }
+
+        #info{
+            background-color: green;
+        }
+
+        #row{
+            background-color: indianred;
+        }
+
+        #bottle{
+            background-color: royalblue;
+        }
+*/
+
+    </style>
+
+    <script type="text/javascript">
+ 
+ //------------------SETUP-----------------------
+        var base_url = window.location.href.substr(0,window.location.href.lastIndexOf("/") + 1);
+        
+        var div_height = 1500;
+        var info_offset = 0.3;
+        var transition_start_time = 0.7;
+        var end_freeze_max = 50;
+
+        var rad_start = 0;
+        var rad_end = 0.45;
+
+        var fov_start = 1.5707 - 0.93;
+        var fov_end = 1.5707;
+
+        var viewportwidth;
+        var viewportheight;
+        var row_width;
+
+
+        window.onresize = window_on_resize;
+        window.onload = window_on_load;
+        window.onscroll = window_on_scroll;
+
+        var scroll_animation_list = [];
+        var scroll_event_list = [];
+
+ //-------------------CALLBACKS-------------------
+        function window_on_load(){
+            adapt_canvas();
+            init_animation_components();
+            create_event_lists();
+            window_on_scroll(); 
+        }
+
+        function window_on_resize(){
+            adapt_canvas();
+            init_animation_components();
+            create_event_lists();
+            window.on_resize();
+            window_on_scroll();
+        }
+
+        function window_on_scroll(){
+            for(let i=0; i < scroll_event_list.length; i++){
+                let k;
+                for(k = 0; k < scroll_event_list[i].points.length; k++){
+                    if(window.pageYOffset < scroll_event_list[i].points[k]){
+                        if(scroll_event_list[i].state != k)
+                            scroll_event_list[i].callback(k);
+                        break;
+                    }
+                }
+                if(k == scroll_event_list[i].points.length && scroll_event_list[i].state != k)
+                    scroll_event_list[i].callback(k);
+            }
+            for(let i=0; i < scroll_animation_list.length; i++){
+                if(window.pageYOffset >= scroll_animation_list[i].scope[0] && window.pageYOffset <= scroll_animation_list[i].scope[1]){
+                    scroll_animation_list[i].callback(Math.min(Math.max(window.pageYOffset - scroll_animation_list[i].start, 0) / (scroll_animation_list[i].duration), 1));
+                }
+            }
+        }
+
+        function init_animation_components(){
+            let info = document.getElementById("info");
+            let gl_cell = document.getElementById("gl_cell");
+            let canvas = document.getElementById("gl");
+            let bottle = document.getElementById("bottle");
+
+            if(viewportwidth < 768){
+                info.style.display = "initial";
+                bottle.style.height = (div_height * transition_start_time + info.getBoundingClientRect().height + 10) + "px";
+                info.style.top = (div_height * transition_start_time) - canvas.height + "px";
+                info.style.left = "10px";
+                info.style.position = "";
+                gl_cell.style.textAlign = "center";
+                gl_cell.style.left = "0px";
+            }else{
+                gl_cell.style.left = (row_width - canvas.width)/2 - (row_width * get_grid_ratio() - canvas.width) + "px";
+                bottle.style.height = div_height + "px";
+                gl_cell.style.textAlign = "right";
+            }
+        }
+
+//---------------------ANIMATION------------------------
+        function ScrollAnimation(scope, start, duration, callback){
+            this.scope = scope;
+            this.start = start;
+            this.duration = duration;
+            this.callback = callback;
+        }
+
+        function ScrollEvent(points, callback){
+            this.points = points;
+            this.callback = callback;
+            this.state = -1;
+        }
+
+        function create_event_lists(){
+            let info = document.getElementById("info");
+            let gl_cell = document.getElementById("gl_cell");
+            let canvas = document.getElementById("gl");
+
+            let bot_boarder = Math.min(20, Math.max(0, (viewportheight - canvas.height)/2));
+            
+            //animation_start = canvas.getBoundingClientRect().top - parse_css_string(gl_cell.style.top) + window.pageYOffset - viewportheight + canvas.height + bot_boarder;
+            let animation_start = document.getElementById("bottle").getBoundingClientRect().top + window.pageYOffset - viewportheight + canvas.height + bot_boarder;
+            let animation_max_dur;
+            let rendering_duration;
+
+            scroll_animation_list = [];
+            scroll_event_list = [];
+
+            if(viewportwidth < 768){
+                animation_max_dur = (div_height * transition_start_time) - canvas.height;
+                rendering_duration = animation_max_dur;
+
+                scroll_event_list.push(
+                    new ScrollEvent([animation_start + rendering_duration], function(state){
+                        switch(state){
+                            case 0:
+                                info.style.display = "none";
+                                break;
+
+                            case 1:
+                                info.style.display = "initial";
+                                break;
+                        }
+                        this.state = state;
+                    }),
+                );
+
+            }else{
+                let end_freeze = end_freeze_max - Math.min(0, viewportheight - canvas.height, end_freeze_max);
+                let canvas_top_offset = (viewportheight - canvas.height - bot_boarder);
+//
+                animation_max_dur = div_height - canvas.height;
+                rendering_duration = animation_max_dur * transition_start_time - end_freeze;
+
+                scroll_animation_list.push(
+                    //transition
+                    new ScrollAnimation([animation_start, animation_start+animation_max_dur], animation_start + rendering_duration, animation_max_dur * (1-transition_start_time), function(t){ 
+
+                        canvas.style.left = mix((row_width - canvas.width)/2, row_width * get_grid_ratio() - canvas.width, t) + "px";
+                        info.style.top =  mix(viewportheight, canvas_top_offset + (canvas.height - info.getBoundingClientRect().height) * info_offset, t) + "px";
+                        
+                        console.log(info.style.position);
+                        //gl_cell.style.left = mix((viewportwidth - canvas.width)/2 - (viewportwidth * get_grid_ratio() - canvas.width - 7), 0, t) + "px";
+                       // gl_cell.style.left = mix((viewportwidth - canvas.width)/2 - (viewportwidth * get_grid_ratio() - canvas.width - 7), 0, t) + "px";    
+
+                     //   if(t < 1)
+                      //      info.style.top = (mix(div_height - 100, (canvas.height - info.getBoundingClientRect().height)* info_offset + animation_max_dur - end_freeze, t)) + "px";
+                    }),
+                );
+
+                scroll_event_list.push(
+                    new ScrollEvent([animation_start + rendering_duration, animation_start + animation_max_dur], function(state){
+                       //info
+                        switch(state){
+                            //before
+                            case 0: 
+                                info.style.display = "none";
+                                break;
+
+                            //during transition
+                            case 1:
+                                info.style.display = "initial";
+                                info.style.left = row_width * get_grid_ratio() + "px";
+                                if(this.state == 2)
+                                    info.style.top = canvas_top_offset + (canvas.height - info.getBoundingClientRect().height) * info_offset + "px";
+                                else
+                                    info.style.top = viewportheight + "px";
+                                info.style.position = "fixed";
+                                break;
+
+                            //after transition
+                            case 2:
+                                info.style.display = "initial";
+                                console.log(JSON.stringify(info.getBoundingClientRect()));
+                                info.style.top = (canvas.height - info.getBoundingClientRect().height) * info_offset + animation_max_dur + "px";
+                                info.style.left = "0px";
+                                info.style.position = "";
+                                break;
+                        }
+                        this.state = state;
+                    }),
+                );
+            }
+
+            scroll_event_list.push(
+                //canvas
+                new ScrollEvent([animation_start, animation_start + animation_max_dur], function(state){
+                    switch(state){
+                        //before animation
+                        case 0:        
+                            gl_cell.style.top = "0px";
+                            gl_cell.style.left = (viewportwidth >= 768 ? (row_width - canvas.width)/2 - (row_width * get_grid_ratio() - canvas.width) : 0) + "px";   
+
+                            canvas.style.position = "";
+                            canvas.style.top = "0px";
+                            canvas.style.left = "0px";   
+                            break;
+                        
+                        //during animation
+                        case 1: 
+                            canvas.style.top = (viewportheight - canvas.height - bot_boarder)  + "px";
+                            
+                            if(viewportwidth < 768){
+                                canvas.style.left = (row_width - canvas.width)/2 + "px";
+                            }else{
+                                canvas.style.left = canvas.getBoundingClientRect().left + "px";
+                            }
+                            canvas.style.position = "fixed"; 
+                            break;
+
+                        //after animation
+                        case 2:
+                            gl_cell.style.top = animation_max_dur + "px";
+                            gl_cell.style.left = "0px";
+
+                            canvas.style.position = "";
+                            canvas.style.top = "0px";
+                            canvas.style.left = "0px";   
+                            break;
+                    }
+                    this.state = state;
+                }),
+   /*             //fixing bottle at the start
+                new ScrollEvent(animation_start, function(){
+                    this.state = !this.state;
+
+                    fix_release_bottle(this.state, canvas, bot_boarder);
+                    if(this.state){
+                        gl_cell.style.top = "0px";
+                        gl_cell.style.left = (viewportwidth >= 768 ? (viewportwidth - canvas.width)/2 - (viewportwidth * get_grid_ratio() - canvas.width - 7) : 0) + "px";
+                    }
+                }),
+
+                //realeasing bottle at the end
+                new ScrollEvent(animation_start + animation_max_dur, function(){
+                    this.state = !this.state;
+
+                    fix_release_bottle(!this.state, canvas, bot_boarder);
+                    if(!this.state){
+                        gl_cell.style.top = animation_max_dur + "px";
+                        gl_cell.style.left = "0px";
+                    }
+                }),
+        */
+                //handling the infobox
+       //         new ScrollEvent(animation_start + rendering_duration, function(){
+
+       //         })
+            );
+
+            scroll_animation_list.push(
+                //rendering effects
+                new ScrollAnimation([0, Number.MAX_SAFE_INTEGER], animation_start, rendering_duration, function(t){
+                    
+                    window.render(mix(rad_start, rad_end, t), mix(fov_start, fov_end, t), mix(6.1, 8, t));
+                }),
+            );
+        }   
+        
+        function fix_release_bottle(bool, canvas, bot_boarder){
+            if(bool){
+                canvas.style.position = "";
+                canvas.style.top = "0px";
+                canvas.style.left = "0px";
+            }else{
+                canvas.style.top = (viewportheight - canvas.height - bot_boarder)  + "px";
+                canvas.style.left = canvas.getBoundingClientRect().left + "px";
+                canvas.style.position = "fixed";                        
+            }
+        }
+
+        function mix(a, b, t){
+            return a + t*(b-a);
+        }
+
+        function parse_css_string(str){
+            let r = parseInt(str);
+            if(isNaN(r))
+                return 0;
+            return r;
+        }
+
+    //------------------------RENDERING----------------------------
+
+        function adapt_canvas(){
+            get_viewport_dimensions();
+
+            let canvas = document.getElementById("gl");            
+            let aspect_ratio = 0.8;
+
+            let width;
+            let height;
+
+            if(row_width < (viewportheight * aspect_ratio)){
+                width = Math.min(640,row_width * get_grid_ratio(), row_width);
+                height = width/aspect_ratio;
+            }else{
+                height = Math.min(800, row_width * get_grid_ratio() / aspect_ratio ,viewportheight);
+                width = height * aspect_ratio;
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+        }
+
+        function get_grid_ratio(){
+            if(viewportwidth >= 1200){ //xl
+                return 6/12;
+            }else if(viewportwidth >= 992){ //lg
+                return 7/12;
+            }else if(viewportwidth >= 768){ //md
+                return 8/12;
+            }
+            return 1;
+        }
+
+        function get_viewport_dimensions(){
+             // the more standards compliant browsers (mozilla/netscape/opera/IE7) use window.innerWidth and window.innerHeight
+            if (typeof window.innerWidth != 'undefined')    {
+               // viewportwidth = document.getElementById("bottle").getBoundingClientRect().width,
+                viewportwidth = window.innerWidth,
+                row_width = document.getElementById("row").getBoundingClientRect().width,
+                viewportheight = window.innerHeight
+            }     
+            // IE6 in standards compliant mode (i.e. with a valid doctype as the first line in the document)
+            else if (typeof document.documentElement != 'undefined'
+                && typeof document.documentElement.clientWidth !=
+                'undefined' && document.documentElement.clientWidth != 0)    {
+                viewportwidth = document.documentElement.clientWidth,
+                viewportheight = document.documentElement.clientHeight
+            }else{ // older versions of IE
+                viewportwidth = document.getElementsByTagName('body')[0].clientWidth,
+                viewportheight = document.getElementsByTagName('body')[0].clientHeight
+            }
+        }
+    </script>
+
+
+
+
+    <script type="module" src="webgl.js"></script> 
+    <img id="etikett_vorn.png" src="./models/etikett_vorn.png" style="display: none;"/>
+</head>
+<body>
+    
+    <div id ="dere">hawi dere</div>
+    <br>
+    <div id="print"> hundling da schiarche </div>
+
+    <div>
+        <br/>
+        <br/>
+        <br/>
+        <br/>
+        <br/>
+        <br/>
+
+        
+        <br/>
+        <br/>
+        <br/>
+        
+        <br/>
+        <br/>
+        <br/>
+        
+        <br/>
+        <br/>
+        <br/>
+        
+        <br/>
+        <br/>
+        <br/>
+        <br/>
+
+    </div>
+    <div><!-- style="left:30px;background-color: burlywood;">-->
+    <div id="bottle" class="container-fluid">
+    <div id="row" class="row no-gutters">    
+        <div class="col-sm-12 col-md-8 col-lg-7 col-xl-6" id="gl_cell">
+            <canvas id="gl" width="640" height="800" style="background-size: contain;"></canvas>
+        </div>
+        <div class="col-sm-12 col-md-4 col-lg-5 col-xl-6" id="info">
+            <div class="h1">Kainer Gin</div>
+            <div>des is scha a söltn kronki gschicht, do mohst völli niarma aufhern saufn</div>
+            <br/>
+            <div class="h1">Aufpassn güts!</div>
+            <div>wannst zfü dawischt foart er mit diar und net umkert!</div>
+            <br/>
+            <div class="h1">Kaust glei eimoarktn</div>
+            <div>Do gehts zum Shop</div>
+        </div>
+    </div>  
+    </div>
+    </div>
+    <br/>
+    <div id="kronk" style="height:1000px; color:green;">
+        daöflk
+    </div>
+</body>
+</html>
